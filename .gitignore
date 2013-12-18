@@ -1,7 +1,5 @@
-dist
-cabal-dev
-*.o
-*.hi
-*.chi
-*.chs.h
-.virthualenv
+project/project
+project/target
+target
+src/main/resources/frontend/components
+bundle.js
