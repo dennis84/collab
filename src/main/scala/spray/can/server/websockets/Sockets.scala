@@ -85,7 +85,7 @@ object Sockets extends ExtensionKey[SocketExt]{
   def calculateReturnHash(headers: List[HttpHeader]) = {
     headers.collectFirst{
       // Changed "Sec-WebSocket-Key" to "Sec-Websocket-Key".
-      case RawHeader("Sec-WebSocket-Key", value) => (value + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes("UTF-8")
+      case RawHeader("Sec-Websocket-Key", value) => (value + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes("UTF-8")
     }.map(MessageDigest.getInstance("SHA-1").digest)
       .map(new sun.misc.BASE64Encoder().encode)
   }
@@ -93,7 +93,7 @@ object Sockets extends ExtensionKey[SocketExt]{
   def socketAcceptHeaders(returnValue: String) = List(
     HttpHeaders.RawHeader("Upgrade", "websocket"),
     HttpHeaders.Connection("Upgrade"),
-    HttpHeaders.RawHeader("Sec-Websocket-Accept", returnValue)
+    HttpHeaders.RawHeader("Sec-WebSocket-Accept", returnValue)
   )
 
   def acceptAllFunction(x: HttpRequest) = {
