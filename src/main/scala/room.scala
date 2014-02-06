@@ -6,58 +6,70 @@ import akka.util.ByteString
 import spray.can.server.websockets._
 import spray.can.server.websockets.model._
 import spray.can.server.websockets.model.OpCode._
-import scala.concurrent.duration._
 import spray.json._
+import DefaultJsonProtocol._
 
 case class Member(
-  var name: String,
-  val socket: ActorRef)
+  val id: String,
+  val socket: ActorRef,
+  var name: Option[String] = None)
 
 case class Message(
   val name: String,
   val data: JsValue,
-  val frame: Frame,
-  val sender: ActorRef)
-
-case object Online
+  val sender: Member,
+  val frame: Option[Frame] = None)
 
 class Room extends Actor {
   import context.dispatcher
-  import DefaultJsonProtocol._
 
-  val members = scala.collection.mutable.ListBuffer.empty[Member]
-
-  context.system.scheduler.schedule(
-    0.milliseconds, 1.seconds, self, Online)
+  var members = scala.collection.mutable.ListBuffer.empty[Member]
 
   def receive = {
     case Sockets.Upgraded ⇒
-      members += Member(Rand.nextString(8), sender)
+      val id = Rand.nextString(8)
+      val member = Member(id, sender)
+      sendToAll(Message("join", JsString(id), member))
+      members += member
 
-    case Message("code", data, frame, sender) ⇒
-      members foreach (_.socket ! frame.copy(maskingKey = None))
+    case m @ Message("code", data, sender, _) ⇒ sendToAll(m)
 
-    case Message("cursor", data, frame, sender) ⇒
-      members foreach (_.socket ! frame.copy(maskingKey = None))
+    case m @ Message("cursor", data, sender, _) ⇒ sendToAll(m)
 
-    case Message("user", JsString(name), frame, sender) ⇒
-      members find (_.socket == sender) map (_.name = name)
+    case m @ Message("members", data, sender, _) ⇒
+      sendToAll(m.copy(data = members.map(member ⇒ Map(
+        "id"   -> member.id,
+        "name" -> member.name.getOrElse(member.id)
+      )).toList.toJson))
 
-    case Online ⇒
-      members foreach (_.socket ! Frame(
-        opcode = Text,
-        maskingKey = None,
-        data = ByteString(JsObject(
-          "t" -> JsString("online"),
-          "d" -> JsArray(members.map(m ⇒ JsString(m.name)).toList)
-        ).prettyPrint)))
+    case Message("member", JsString(name), sender, _) ⇒
+      members find (_.socket == sender.socket) map (_.name = Some(name))
+      self ! Message("members", JsNull, sender)
 
-    case f @ Frame(fin, rsv, Text | Binary, maskingKey, data) ⇒
+    case f @ Frame(fin, rsv, Text | Binary, maskingKey, data) ⇒ for {
+      member <- members find (_.socket == sender)
+    } yield {
       f.stringData.asJson.asJsObject.getFields("t", "d") match {
-        case Seq(JsString(t), d) ⇒ self ! Message(t, d, f, sender)
+        case Seq(JsString(t), d) ⇒ self ! Message(t, d, member)
+        case Seq(JsString(t)) ⇒ self ! Message(t, JsNull, member)
       }
+    }
 
-    case x: ConnectionClosed ⇒
-      members find (_.socket == sender) map (s ⇒ members -= s)
+    case x: ConnectionClosed ⇒ for {
+      member ← members.find(_.socket == sender)
+    } yield {
+      members -= member
+      sendToAll(Message("leave", JsString(member.id), member))
+    }
   }
+
+  def sendToAll(message: Message) =
+    members foreach { _.socket !
+      (message.frame getOrElse Frame(opcode = Text, maskingKey = None)).copy(
+        data = ByteString(JsObject(
+          "t" -> JsString(message.name),
+          "s" -> JsString(message.sender.id),
+          "d" -> message.data
+        ).prettyPrint))
+    }
 }
