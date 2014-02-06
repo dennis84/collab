@@ -29,8 +29,8 @@ class Room extends Actor {
     case Sockets.Upgraded ⇒
       val id = Rand.nextString(8)
       val member = Member(id, sender)
-      sendToAll(Message("join", JsString(id), member))
       members += member
+      sendToAll(Message("join", JsString(id), member))
 
     case m @ Message("code", data, sender, _) ⇒ sendToAll(m)
 
