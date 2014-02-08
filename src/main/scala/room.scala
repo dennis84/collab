@@ -12,7 +12,7 @@ import DefaultJsonProtocol._
 case class Member(
   val id: String,
   val socket: ActorRef,
-  var name: Option[String] = None)
+  val name: Option[String] = None)
 
 case class Message(
   val name: String,
@@ -42,9 +42,15 @@ class Room extends Actor {
         "name" -> member.name.getOrElse(member.id)
       )).toList.toJson))
 
-    case Message("member", JsString(name), sender, _) ⇒
-      members find (_.socket == sender.socket) map (_.name = Some(name))
-      self ! Message("members", JsNull, sender)
+    case Message("member", JsString(name), sender, _) ⇒ for {
+      (member, i) ← members.zipWithIndex.find(_._1.socket == sender.socket)
+    } yield {
+      members.update(i, member.copy(name = Some(name)))
+      sendToAll(Message("member", JsObject(
+        "id" -> JsString(member.id),
+        "name" -> JsString(name)
+      ), sender))
+    }
 
     case f @ Frame(fin, rsv, Text | Binary, maskingKey, data) ⇒ for {
       member <- members find (_.socket == sender)
