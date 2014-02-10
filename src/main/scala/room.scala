@@ -28,9 +28,10 @@ class Room extends Actor {
     case m @ Message("members", data, member) ⇒
       sendToAll(Messages.Members(members.values, member))
 
-    case Message("member", JsString(name), member) ⇒
-      members.update(member.id, member.copy(name = Some(name)))
-      sendToAll(Messages.UpdateNick(member))
+    case Message("update-nick", JsString(name), member) ⇒
+      val updated = member.copy(name = Some(name))
+      members.update(member.id, updated)
+      sendToAll(Messages.UpdateMember(updated))
 
     case f @ Frame(fin, rsv, Text | Binary, maskingKey, data) ⇒ 
       withMember(sender) { member ⇒

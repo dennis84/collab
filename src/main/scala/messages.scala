@@ -21,8 +21,8 @@ object Messages {
       "name" -> JsString(member.name getOrElse member.id))
     }.toList), sender)
 
-  def UpdateNick(member: Member) =
-    Message("update-nick", JsObject(
+  def UpdateMember(member: Member) =
+    Message("update-member", JsObject(
       "id"   -> JsString(member.id),
       "name" -> JsString(member.name getOrElse member.id)
     ), member)
