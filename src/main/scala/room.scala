@@ -8,8 +8,9 @@ import spray.can.server.websockets.model._
 import spray.can.server.websockets.model.OpCode._
 import spray.json._
 import DefaultJsonProtocol._
+import com.redis._
 
-class Room extends Actor {
+class Room(roomId: String, redis: RedisClient) extends Actor {
   import context.dispatcher
 
   val members = collection.mutable.Map.empty[String, Member]
@@ -20,8 +21,18 @@ class Room extends Actor {
       val member = Member(id, sender)
       members += (id -> member)
       sendToAll(Messages.Join(member))
+      for {
+        maybeData ← redis get roomId
+      } yield for {
+        data ← maybeData
+      } yield {
+        sendTo(member, Messages.Code(member, data.asJson))
+      }
 
-    case m @ Message("code", data, _) ⇒ sendToAll(m)
+    case m @ Message("code", data, _) ⇒
+      redis.set(roomId, data.prettyPrint)
+      redis.expire(roomId, 60)
+      sendToAll(m)
 
     case m @ Message("cursor", data, _) ⇒ sendToAll(m)
 
@@ -48,15 +59,21 @@ class Room extends Actor {
       }
   }
 
-  private def sendToAll(message: Message) =
-    members.values foreach { _.socket ! Frame(
-      opcode = Text,
-      data = ByteString(JsObject(
-        "t" -> JsString(message.name),
-        "s" -> JsString(message.sender.id),
-        "d" -> message.data
-      ).prettyPrint))
-    }
+  private def sendToAll(message: Message) = {
+    val frame = makeFame(message)
+    members.values foreach (_.socket ! frame)
+  }
+
+  private def sendTo(member: Member, message: Message) =
+    member.socket ! makeFame(message)
+
+  private def makeFame(message: Message) = Frame(
+    opcode = Text,
+    data = ByteString(JsObject(
+      "t" -> JsString(message.name),
+      "s" -> JsString(message.sender.id),
+      "d" -> message.data
+    ).prettyPrint))
 
   private def withMember(id: String)(f: Member ⇒ Unit) =
     members get id foreach f

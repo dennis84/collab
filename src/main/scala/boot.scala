@@ -4,6 +4,7 @@ import akka.actor._
 import akka.io.IO
 import spray.can.Http
 import spray.can.server.websockets.Sockets
+import com.redis._
 
 object Boot extends App {
 
@@ -11,8 +12,10 @@ object Boot extends App {
 
   val port = sys.env.get("PORT") map(_.toInt) getOrElse 9000
 
+  val redis = RedisClient("localhost", 6379)
+
   val server = system.actorOf(
-    Props[SocketServer],
+    Props(new SocketServer(redis)),
     "socket-server")
 
   IO(Sockets) ! Http.Bind(

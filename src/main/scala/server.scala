@@ -6,7 +6,7 @@ import spray.can.server.websockets._
 import spray.http._
 import HttpMethods._
 
-class SocketServer extends Actor {
+class SocketServer(redis: com.redis.RedisClient) extends Actor {
 
   def actorRefFactory = context
 
@@ -23,7 +23,7 @@ class SocketServer extends Actor {
 
   private def getRoom(id: String): ActorRef =
     (rooms get id) getOrElse {
-      val room = context.actorOf(Props[Room], id)
+      val room = context.actorOf(Props(new Room(id, redis)), id)
       rooms = rooms + (id -> room)
       room
     }

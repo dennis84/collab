@@ -9,6 +9,9 @@ case class Message(
 
 object Messages {
 
+  def Code(member: Member, data: JsValue) =
+    Message("code", data, member)
+
   def Join(member: Member) =
     Message("join", JsString(member.id), member)
 
