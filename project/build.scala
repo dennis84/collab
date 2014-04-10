@@ -31,8 +31,8 @@ object Collab extends Build {
   val collab = Project(
     id = "collab",
     base = file("."),
-    settings =
-      defaults ++
+    settings = defaults ++
       Revolver.settings ++
-      packageArchetype.java_application)
+      packageArchetype.java_application
+  ) dependsOn(uri("https://github.com/lihaoyi/SprayWebSockets.git"))
 }
