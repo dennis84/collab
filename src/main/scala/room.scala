@@ -26,7 +26,7 @@ class Room extends Actor {
     case m @ Message("cursor", data, _) ⇒ sendToAll(m)
 
     case m @ Message("members", data, member) ⇒
-      sendToAll(Messages.Members(members.values, member))
+      pong(Messages.Members(members.values, member))
 
     case Message("update-nick", JsString(name), member) ⇒
       val updated = member.copy(name = Some(name))
@@ -48,15 +48,18 @@ class Room extends Actor {
       }
   }
 
-  private def sendToAll(message: Message) =
-    members.values foreach { _.socket ! Frame(
-      opcode = Text,
-      data = ByteString(JsObject(
-        "t" -> JsString(message.name),
-        "s" -> JsString(message.sender.id),
-        "d" -> message.data
-      ).prettyPrint))
-    }
+  private def pong(m: Message) = m.sender.socket ! frame(m)
+
+  private def sendToAll(m: Message) =
+    members.values foreach { _.socket ! frame(m) }
+
+  private def frame(message: Message) =
+    Frame(opcode = Text,
+          data = ByteString(JsObject(
+            "t" -> JsString(message.name),
+            "s" -> JsString(message.sender.id),
+            "d" -> message.data
+          ).prettyPrint))
 
   private def withMember(id: String)(f: Member ⇒ Unit) =
     members get id foreach f
