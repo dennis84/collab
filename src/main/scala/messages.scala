@@ -18,7 +18,8 @@ object Messages {
   def Members(members: Iterable[Member], sender: Member) =
     Message("members", JsArray(members.map { member ⇒ JsObject(
       "id"   -> JsString(member.id),
-      "name" -> JsString(member.name getOrElse member.id))
+      "name" -> JsString(member.name getOrElse member.id),
+      "me"   -> JsBoolean(member == sender))
     }.toList), sender)
 
   def UpdateMember(member: Member) =
