@@ -59,7 +59,7 @@ class Room extends Actor {
             "t" -> JsString(message.name),
             "s" -> JsString(message.sender.id),
             "d" -> message.data
-          ).prettyPrint))
+          ).compactPrint))
 
   private def withMember(id: String)(f: Member ⇒ Unit) =
     members get id foreach f
